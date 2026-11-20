@@ -2,6 +2,21 @@
 
 Module path: `github.com/wasinuddy/ai-b2b-saas-template`.
 
+## Use this GitHub template
+
+1. On GitHub, click **Use this template** and create your repository.
+2. Clone the new repo and open it in Cursor.
+3. Ask the agent to **rebrand from template** (skill `rebrand-from-template` in `.cursor/skills/`, `.claude/skills/`, or `.agents/skills/`), or run:
+
+   ```bash
+   ./scripts/rebrand-from-template.sh \
+     --go-module 'github.com/<org>/<repo>' \
+     --product-name '<Your Product>'
+   make generate && make check
+   ```
+
+The skill updates the Go module path, OpenAPI metadata, web UI title, and docs, then you verify with `make check`.
+
 A Go API skeleton for Fiber v2 (`github.com/gofiber/fiber/v2`) with a layered architecture and SQLite. GORM talks to the database. Schema changes are SQL files in `migrations/`, applied by hand. `gorm.AutoMigrate` is not used.
 
 golangci-lint enforces layer boundaries with depguard and maintainability limits on function size, complexity, parameters, shadowing, and error handling. API shape is enforced by a generated OpenAPI spec, a Spectral ruleset, a small Go analyzer, and contract tests. `make check` runs all of them.
@@ -236,9 +251,11 @@ docker run --rm -p 8080:8080 -v ai-b2b-saas-data:/data ai-b2b-saas
 
 The same `make check` (backend + OpenAPI + frontend) runs when an agent finishes a turn:
 
-- Cursor reads `.cursor/hooks.json`.
-- Claude Code reads `.claude/settings.json`.
-- Codex reads `.codex/hooks.json` after you trust the project. Hooks are on by default.
+- Cursor reads `.cursor/hooks.json` and project skills under `.cursor/skills/`.
+- Claude Code reads `.claude/settings.json` and project skills under `.claude/skills/`.
+- Codex reads `.codex/hooks.json` after you trust the project. Hooks are on by default. Repo skills live under `.agents/skills/`.
+
+The **rebrand-from-template** skill is symlinked into all three skill directories from `.cursor/skills/rebrand-from-template/`.
 
 A failing check is handed back to the agent, with a cap of three retries. Edited Go files are formatted with `gofmt` and `swag fmt`, and backend Go edits automatically regenerate `api/swagger.yaml`, `api/openapi.yaml`, and `webui/src/types/api.gen.ts`. Edited frontend files are formatted with Prettier.
 

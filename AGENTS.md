@@ -71,6 +71,14 @@ Full HTTP rules are in [docs/api-design.md](docs/api-design.md) and enforced by 
 - It is **disabled by default** (`AUTH_ENABLED=false`), passing requests through unchanged until a project needs authentication.
 - No opinionated user/password schema or auth endpoints are pre-installed. When a project needs auth, implement `middleware.TokenVerifier` (user/password JWT, sessions, OAuth/OIDC, or API keys), wire it in `cmd/api/main.go`, mount protected route groups with `deps.AuthGuard` in `internal/handler/router.go`, and set `AUTH_ENABLED=true`.
 
+## Rebrand after “Use this template”
+
+New repos from [ai-b2b-saas-template](https://github.com/WasinUddy/ai-b2b-saas-template)
+should run the project skill **rebrand-from-template**
+(`.cursor/skills/`, `.claude/skills/`, or `.agents/skills/rebrand-from-template/SKILL.md`) or
+`scripts/rebrand-from-template.sh` before feature work. Finish with `make generate`
+and `make check`.
+
 ## Adding a Fullstack Feature (Checklist)
 
 1. Add domain types in `internal/model` (no `json` tags) and repository interface in `internal/repository`.

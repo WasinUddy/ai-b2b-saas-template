@@ -1,0 +1,9 @@
+---
+description: API path, JSON, status, and error conventions
+globs: internal/handler/**,cmd/api/**,api/**,.spectral.yaml
+alwaysApply: false
+---
+
+Follow the API conventions in docs/api-design.md. Run `make check` before finishing a handler or spec change.
+
+@docs/api-design.md

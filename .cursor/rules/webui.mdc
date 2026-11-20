@@ -1,0 +1,16 @@
+---
+description: Frontend layering, OpenAPI-typed API client, and styling conventions
+globs: webui/**
+alwaysApply: false
+---
+
+Follow these conventions for all files under `webui/`:
+
+- **Local API calls MUST use the OpenAPI-typed client** (`apiClient`, `unwrapApiResponse`, `streamApiEvents`, `setAuthToken`) in `@/services/apiClient`, backed by generated types in `@/types/api.gen.ts`. Never call `fetch()` or `EventSource` directly in components, hooks, features, or services.
+- Never hand-edit `webui/src/types/api.gen.ts`. Run `make generate` after modifying Go handlers or DTOs.
+- Respect layer import direction (`eslint.config.js` enforces it):
+  `types < services < hooks < components < features < pages < app`
+- Import feature modules only through their barrel: `@/features/<name>`.
+- No `any` (`@typescript-eslint/no-explicit-any` is an error) and no circular imports.
+- Style with Tailwind CSS v4 (`@import 'tailwindcss';` and `@theme` in `src/index.css`).
+- Run `make check` (or `pnpm --dir webui check && pnpm --dir webui build`) before finishing.

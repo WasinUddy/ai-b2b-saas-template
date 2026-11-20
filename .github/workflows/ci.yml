@@ -1,0 +1,362 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOCKERFILE_PATH: Dockerfile
+  GHCR_REGISTRY: ghcr.io
+  # Leave empty to default to the lowercased repository name.
+  GHCR_IMAGE_NAME: ""
+
+jobs:
+  api-spec:
+    name: API spec & Spectral
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: webui/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Check swag formatting, OpenAPI specs, and frontend API types
+        run: make api-check
+
+      - name: Lint OpenAPI spec with Spectral
+        run: make api-lint
+
+      - name: Self-test Spectral rules
+        run: make api-lint-selftest
+
+  go-lint:
+    name: Go lint & analyzers
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+
+      - name: Run golangci-lint
+        run: make lint
+
+      - name: Run custom apilint analyzer
+        run: make apilint
+
+  go-test:
+    name: Go tests, coverage & hooks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: webui/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Run tests and coverage gate
+        run: make test
+
+      - name: Self-test agent hooks
+        run: make hooks-selftest
+
+  webui:
+    name: Web UI check & build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: webui/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: webui/pnpm-lock.yaml
+
+      - name: Check and build frontend
+        run: make webui-check
+
+  prepare:
+    name: Prepare image metadata
+    needs:
+      - api-spec
+      - go-lint
+      - go-test
+      - webui
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v')
+      ))
+    runs-on: ubuntu-24.04
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+      image_full: ${{ steps.meta.outputs.image_full }}
+      build_package_name: ${{ steps.meta.outputs.build_package_name }}
+      build_image_full: ${{ steps.meta.outputs.build_image_full }}
+      build_tag: ${{ steps.meta.outputs.build_tag }}
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Determine image coordinates and tags
+        id: meta
+        env:
+          GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          IMAGE_NAME="${GHCR_IMAGE_NAME:-${GITHUB_REPO_NAME}}"
+          IMAGE_NAME="${IMAGE_NAME,,}"
+          IMAGE_FULL="${GHCR_REGISTRY}/${OWNER}/${IMAGE_NAME}"
+          BUILD_PACKAGE_NAME="${IMAGE_NAME}-build"
+          BUILD_IMAGE_FULL="${GHCR_REGISTRY}/${OWNER}/${BUILD_PACKAGE_NAME}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BUILD_TAG="${SHORT_SHA}-${GITHUB_RUN_ID}"
+
+          TAGS=("${SHORT_SHA}")
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            TAGS+=("latest")
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            TAGS+=("${VERSION}")
+            if [[ "${VERSION}" != *-* ]]; then
+              TAGS+=("latest")
+            fi
+          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            SAFE_BRANCH="$(printf '%s' "${BRANCH}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g')"
+            if [[ -n "${SAFE_BRANCH}" ]]; then
+              TAGS+=("${SAFE_BRANCH}")
+            fi
+          fi
+
+          {
+            echo "owner=${OWNER}"
+            echo "image_full=${IMAGE_FULL}"
+            echo "build_package_name=${BUILD_PACKAGE_NAME}"
+            echo "build_image_full=${BUILD_IMAGE_FULL}"
+            echo "build_tag=${BUILD_TAG}"
+            echo "tags=$(IFS=,; echo "${TAGS[*]}")"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.arch }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE_PATH }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
+          tags: ${{ needs.prepare.outputs.build_image_full }}:${{ needs.prepare.outputs.build_tag }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  publish-manifest:
+    name: Publish multi-arch manifest
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        env:
+          IMAGE_FULL: ${{ needs.prepare.outputs.image_full }}
+          BUILD_IMAGE_FULL: ${{ needs.prepare.outputs.build_image_full }}
+          BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}
+          IMAGE_TAGS: ${{ needs.prepare.outputs.tags }}
+        run: |
+          set -euo pipefail
+
+          TAG_ARGS=()
+          IFS=',' read -r -a TAG_LIST <<< "${IMAGE_TAGS}"
+          for tag in "${TAG_LIST[@]}"; do
+            TAG_ARGS+=(--tag "${IMAGE_FULL}:${tag}")
+          done
+
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            "${TAG_ARGS[@]}" \
+            "${BUILD_IMAGE_FULL}:${BUILD_TAG}-amd64" \
+            "${BUILD_IMAGE_FULL}:${BUILD_TAG}-arm64"
+
+          docker buildx imagetools inspect "${IMAGE_FULL}:${TAG_LIST[0]}"
+
+  cleanup:
+    name: Cleanup temporary build package
+    needs:
+      - prepare
+      - build
+      - publish-manifest
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Delete temporary build package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ needs.prepare.outputs.owner }}
+          OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          BUILD_PACKAGE_NAME: ${{ needs.prepare.outputs.build_package_name }}
+          BUILD_TAG: ${{ needs.prepare.outputs.build_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${OWNER_TYPE}" == "Organization" ]]; then
+            PKG_URL="https://api.github.com/orgs/${OWNER}/packages/container/${BUILD_PACKAGE_NAME}"
+          else
+            PKG_URL="https://api.github.com/user/packages/container/${BUILD_PACKAGE_NAME}"
+          fi
+
+          AUTH_HEADER="Authorization: Bearer ${GITHUB_TOKEN}"
+          API_HEADER="X-GitHub-Api-Version: 2022-11-28"
+          ACCEPT_HEADER="Accept: application/vnd.github+json"
+
+          LIST_STATUS="$(curl -sS -o /tmp/versions.json -w '%{http_code}' \
+            -H "${ACCEPT_HEADER}" -H "${AUTH_HEADER}" -H "${API_HEADER}" \
+            "${PKG_URL}/versions?per_page=100")"
+
+          if [[ "${LIST_STATUS}" == "404" ]]; then
+            echo "Temporary package ${BUILD_PACKAGE_NAME} does not exist (already deleted)"
+            exit 0
+          fi
+
+          # If another concurrent build has versions in this package, remove only this run's versions.
+          if [[ "${LIST_STATUS}" == "200" ]]; then
+            OTHER_COUNT="$(jq -r --arg prefix "${BUILD_TAG}-" \
+              '[.[] | select((.metadata.container.tags // []) | any(startswith($prefix)) | not)] | length' \
+              /tmp/versions.json)"
+
+            if [[ "${OTHER_COUNT}" -gt 0 ]]; then
+              mapfile -t OWN_IDS < <(jq -r --arg prefix "${BUILD_TAG}-" \
+                '.[] | select((.metadata.container.tags // []) | any(startswith($prefix))) | .id' \
+                /tmp/versions.json)
+              for id in "${OWN_IDS[@]}"; do
+                curl -sS -o /dev/null -X DELETE \
+                  -H "${ACCEPT_HEADER}" -H "${AUTH_HEADER}" -H "${API_HEADER}" \
+                  "${PKG_URL}/versions/${id}" || true
+              done
+              echo "Removed ${#OWN_IDS[@]} temporary version(s) for ${BUILD_TAG}; other builds still active"
+              exit 0
+            fi
+          fi
+
+          HTTP_STATUS="$(curl -sS -o /tmp/delete-response.txt -w '%{http_code}' -X DELETE \
+            -H "${ACCEPT_HEADER}" -H "${AUTH_HEADER}" -H "${API_HEADER}" \
+            "${PKG_URL}")"
+
+          if [[ "${HTTP_STATUS}" == "204" ]]; then
+            echo "Deleted temporary package ${BUILD_PACKAGE_NAME}"
+          elif [[ "${HTTP_STATUS}" == "404" ]]; then
+            echo "Temporary package ${BUILD_PACKAGE_NAME} does not exist (already deleted)"
+          else
+            echo "::warning::Could not delete temporary package ${BUILD_PACKAGE_NAME} (HTTP ${HTTP_STATUS}): $(cat /tmp/delete-response.txt)"
+          fi

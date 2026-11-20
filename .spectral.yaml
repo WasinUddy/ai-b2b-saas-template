@@ -1,0 +1,248 @@
+extends:
+  - spectral:oas
+
+functionsDir: scripts/spectral
+functions:
+  - apiRules
+
+rules:
+  # Built-in rules that fight a minimal code-first spec. Our own rules cover the contract.
+  # host and schemes are environment-specific, so the template does not hardcode them.
+  info-contact: off
+  info-license: off
+  license-url: off
+  contact-properties: off
+  oas2-api-host: off
+  oas2-api-schemes: off
+
+  path-versioned:
+    description: Public paths start with /api/vN. /healthz and /readyz are the only operational exceptions.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-versioned
+  path-kebab-case:
+    description: Static path segments are lowercase kebab-case.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-kebab-case
+  path-param-camel-case:
+    description: Path parameters are camelCase.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-param-camel-case
+  path-no-verbs:
+    description: Paths name resources. HTTP methods name the action.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-no-verbs
+  path-collection-plural:
+    description: The collection before a path parameter is plural.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-collection-plural
+  path-max-depth:
+    description: Nest at most two resources.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-max-depth
+  get-no-body:
+    description: GET does not take a request body.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: get-no-body
+  delete-no-body:
+    description: DELETE does not take a request body.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: delete-no-body
+  post-success-status:
+    description: POST declares 200, 201, or 202.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: post-success-status
+  put-patch-success-status:
+    description: PUT and PATCH declare 200 or 204.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: put-patch-success-status
+  delete-success-status:
+    description: DELETE declares 204 or 202.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: delete-success-status
+  operation-has-4xx:
+    description: Every operation declares a client error. Operational probes are exempt.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: operation-has-4xx
+  path-param-has-404:
+    description: A path parameter can miss, so the operation declares 404.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: path-param-has-404
+  body-has-400:
+    description: A request body can be malformed, so the operation declares 400.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: body-has-400
+  status-code-allowed:
+    description: Status codes stay inside the agreed set.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: status-code-allowed
+  query-param-camel-case:
+    description: Query parameter names are camelCase.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: query-param-camel-case
+  property-camel-case:
+    description: JSON properties are camelCase.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: property-camel-case
+  operation-id-camel-case:
+    description: operationId is camelCase.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: operation-id-camel-case
+  operation-tags:
+    description: Every operation has a tag.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: operation-tags
+  operation-summary:
+    description: Every operation has a summary.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: operation-summary
+  error-response-ref:
+    description: 4xx and 5xx responses use ErrorResponse.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: error-response-ref
+  collection-pagination-params:
+    description: Collection reads declare pageSize and pageToken.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: collection-pagination-params
+  collection-pagination-response:
+    description: Collection responses return items and nextPageToken.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: collection-pagination-response
+  sort-by-enum:
+    description: sortBy lists the fields a client can sort on.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: sort-by-enum
+  sse-stream-response:
+    description: SSE operations declare a 200 text/event-stream response.
+    message: "{{error}}"
+    severity: error
+    given: "$"
+    then:
+      function: apiRules
+      functionOptions:
+        check: sse-stream-response
+# Exceptions belong here, with a comment that says why the rule does not apply.
+# overrides:
+#   - files:
+#       - api/swagger.yaml#/paths/~1v1~1equipment~1{equipmentId}
+#     rules:
+#       path-collection-plural: off

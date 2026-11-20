@@ -1,0 +1,14 @@
+.cache
+.claude
+.codex
+.cursor
+.githooks
+.github
+bin
+coverage.out
+*.db
+*.db-wal
+*.db-shm
+configs/app.env
+webui/node_modules
+webui/dist

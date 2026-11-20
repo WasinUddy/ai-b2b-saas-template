@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": "scripts/ai-hooks/stop-check.sh --agent cursor",
+        "loop_limit": 3,
+        "timeout": 300
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "scripts/ai-hooks/post-edit.sh --agent cursor",
+        "timeout": 60
+      }
+    ]
+  }
+}

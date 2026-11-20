@@ -1,0 +1,206 @@
+version: "2"
+
+run:
+  relative-path-mode: gomod
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - depguard
+    - errchkjson
+    - errname
+    - forbidigo
+    - errorlint
+    - funlen
+    - gocognit
+    - gocritic
+    - gocyclo
+    - gosec
+    - misspell
+    - musttag
+    - nestif
+    - nilerr
+    - nilnil
+    - nolintlint
+    - revive
+    - sloglint
+    - tagliatelle
+    - unparam
+    - wastedassign
+  settings:
+    depguard:
+      rules:
+        fiber-only-in-http:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/handler/*.go"
+            - "!**/internal/handler/**/*.go"
+            - "!**/internal/middleware/*.go"
+            - "!**/internal/middleware/**/*.go"
+            - "!**/cmd/**/*.go"
+          deny:
+            - pkg: github.com/gofiber/fiber
+              desc: Fiber belongs in internal/handler, internal/middleware, and cmd
+        logging-only-at-edge:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/handler/*.go"
+            - "!**/internal/handler/**/*.go"
+            - "!**/internal/middleware/*.go"
+            - "!**/internal/middleware/**/*.go"
+            - "!**/cmd/**/*.go"
+          deny:
+            - pkg: log
+              desc: return a wrapped error; handler.NewErrorHandler logs it once
+        persistence-only-in-platform:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/platform/**/*.go"
+          deny:
+            - pkg: gorm.io
+              desc: database access belongs in internal/platform
+            - pkg: github.com/glebarez
+              desc: database access belongs in internal/platform
+            - pkg: modernc.org/sqlite
+              desc: database access belongs in internal/platform
+            - pkg: database/sql
+              desc: database access belongs in internal/platform
+        model:
+          list-mode: lax
+          files:
+            - "**/internal/model/*.go"
+            - "**/internal/model/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal
+              desc: model is the innermost layer and must not import other internal packages
+        repository:
+          list-mode: lax
+          files:
+            - "**/internal/repository/*.go"
+            - "**/internal/repository/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/service
+              desc: repository must not depend on service
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/handler
+              desc: repository must not depend on handler
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/middleware
+              desc: repository must not depend on middleware
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/platform
+              desc: repository defines contracts and must not depend on platform implementations
+        service:
+          list-mode: lax
+          files:
+            - "**/internal/service/*.go"
+            - "**/internal/service/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/handler
+              desc: service must not depend on handler
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/middleware
+              desc: service must not depend on middleware
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/platform
+              desc: service depends on repository interfaces, never on platform implementations
+        handler:
+          list-mode: lax
+          files:
+            - "**/internal/handler/*.go"
+            - "**/internal/handler/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/repository
+              desc: handler calls services, not repository interfaces
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/platform
+              desc: handler must not import platform implementations
+        middleware:
+          list-mode: lax
+          files:
+            - "**/internal/middleware/*.go"
+            - "**/internal/middleware/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/handler
+              desc: middleware must not depend on handler
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/repository
+              desc: middleware must not depend on repository
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/platform
+              desc: middleware must not depend on platform
+        platform:
+          list-mode: lax
+          files:
+            - "**/internal/platform/**/*.go"
+          deny:
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/handler
+              desc: platform must not depend on handler
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/middleware
+              desc: platform must not depend on middleware
+            - pkg: github.com/wasinuddy/ai-b2b-saas-template/internal/service
+              desc: platform implements repository interfaces and must not depend on service
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^(fmt\.Print(f|ln)?|print|println)$
+          msg: return the error, or log through the injected *slog.Logger
+        - pattern: ^fiber\.Map$
+          pkg: ^github\.com/gofiber/fiber/v2$
+          msg: use a named response struct
+        - pattern: \.BodyParser$
+          pkg: ^github\.com/gofiber/fiber/v2$
+          msg: parse request bodies with bindJSON
+        - pattern: \.QueryParser$
+          pkg: ^github\.com/gofiber/fiber/v2$
+          msg: parse query parameters with bindQuery
+        - pattern: \.JSON$
+          pkg: ^github\.com/gofiber/fiber/v2$
+          msg: write JSON with respond
+    tagliatelle:
+      case:
+        rules:
+          json: camel
+          query: camel
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    funlen:
+      lines: 60
+      statements: 40
+    gocognit:
+      min-complexity: 15
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - nilness
+        - shadow
+        - unusedwrite
+      settings:
+    nestif:
+      min-complexity: 4
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      enable-default-rules: true
+      rules:
+        - name: argument-limit
+          arguments: [5]
+        - name: function-result-limit
+          arguments: [3]
+        - name: import-shadowing
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+      - path: internal/handler/(respond|bind)\.go
+        linters:
+          - forbidigo
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/wasinuddy/ai-b2b-saas-template

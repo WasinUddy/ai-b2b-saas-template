@@ -1,0 +1,15 @@
+# Statement coverage gate for internal/service (business logic).
+profile: coverage.out
+
+threshold:
+  package: 85
+  total: 85
+
+exclude:
+  paths:
+    - ^cmd/
+    - ^internal/handler/
+    - ^internal/middleware/
+    - ^internal/model/
+    - ^internal/repository/
+    - ^internal/platform/

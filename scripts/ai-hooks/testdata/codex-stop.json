@@ -1,0 +1,5 @@
+{
+  "session_id": "codex-session",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false
+}

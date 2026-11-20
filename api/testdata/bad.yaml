@@ -1,0 +1,147 @@
+swagger: "2.0"
+info:
+  title: Bad API
+  version: "1.0.0"
+  description: Fixture that violates every custom API rule. Spectral's self-test requires each rule to fire.
+paths:
+  /GetBookings:
+    get:
+      operationId: Get_bookings
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+            properties:
+              Guest_count:
+                type: integer
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: object
+            properties:
+              Guest_count:
+                type: integer
+        "418":
+          description: teapot
+          schema:
+            type: object
+  /api/v1/user/{user_id}/orders/{order_id}/items/{item_id}:
+    get:
+      summary: Too many nested resources
+      tags:
+        - users
+      operationId: listDeep
+      parameters:
+        - name: Sort_By
+          in: query
+          type: string
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: object
+        "400":
+          description: bad
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/create:
+    post:
+      summary: Create something
+      tags:
+        - actions
+      operationId: createThing
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+      responses:
+        "204":
+          description: no content
+  /api/v1/payment_methods:
+    put:
+      summary: Replace a payment method
+      tags:
+        - payments
+      operationId: replacePaymentMethod
+      responses:
+        "202":
+          description: accepted
+          schema:
+            type: object
+        "400":
+          description: bad
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/bookings:
+    get:
+      parameters:
+        - name: sortBy
+          in: query
+          type: string
+      responses:
+        "200":
+          description: missing pagination
+          schema:
+            type: object
+            properties:
+              items:
+                type: array
+                items:
+                  type: object
+    post:
+      summary: Create a booking
+      tags:
+        - bookings
+      operationId: createBooking
+      responses:
+        "201":
+          description: created
+          schema:
+            type: object
+        "400":
+          description: bad
+          schema:
+            type: object
+    delete:
+      summary: Delete bookings
+      tags:
+        - bookings
+      operationId: deleteBookings
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+      responses:
+        "200":
+          description: wrong success status
+          schema:
+            type: object
+        "409":
+          description: conflict
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/broken-stream:
+    get:
+      summary: Invalid SSE stream missing 200
+      tags:
+        - realtime
+      operationId: brokenStream
+      produces:
+        - text/event-stream
+      responses:
+        "204":
+          description: wrong status for SSE
+        "401":
+          description: unauthenticated
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+definitions:
+  ErrorResponse:
+    type: object
+    properties:
+      error:
+        type: object

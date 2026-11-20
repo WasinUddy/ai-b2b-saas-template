@@ -1,0 +1,202 @@
+swagger: "2.0"
+info:
+  title: Good API
+  version: "1.0.0"
+  description: Fixture that must lint clean. It guards the custom rules against false positives.
+tags:
+  - name: people
+    description: People.
+  - name: me
+    description: Current user.
+  - name: settings
+    description: User settings.
+  - name: orders
+    description: Orders.
+  - name: realtime
+    description: Server-Sent Events and webhooks.
+paths:
+  /api/v1/people/{personId}:
+    get:
+      summary: Get a person
+      description: Returns one person.
+      operationId: getPerson
+      tags:
+        - people
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/Person"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/me:
+    get:
+      summary: Get the current user
+      description: Returns the caller.
+      operationId: getMe
+      tags:
+        - me
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/Person"
+        "401":
+          description: unauthenticated
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/users/{userId}/settings:
+    get:
+      summary: Get user settings
+      description: Returns the settings of one user.
+      operationId: getUserSettings
+      tags:
+        - settings
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/Person"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/orders:
+    get:
+      summary: List orders
+      description: Returns a page of orders.
+      operationId: listOrders
+      tags:
+        - orders
+      parameters:
+        - name: pageSize
+          in: query
+          type: integer
+          maximum: 100
+        - name: pageToken
+          in: query
+          type: string
+        - name: sortBy
+          in: query
+          type: string
+          enum:
+            - createdAt
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: "#/definitions/OrderPage"
+        "400":
+          description: bad request
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/events:
+    get:
+      summary: Subscribe to server events
+      description: Opens a Server-Sent Events stream.
+      operationId: streamEvents
+      tags:
+        - realtime
+      produces:
+        - text/event-stream
+      responses:
+        "200":
+          description: event stream
+          schema:
+            type: string
+        "401":
+          description: unauthenticated
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/chats/{chatId}/stream:
+    post:
+      summary: Stream a chat completion
+      description: Streams assistant tokens over Server-Sent Events.
+      operationId: streamChatCompletion
+      tags:
+        - realtime
+      produces:
+        - text/event-stream
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/Person"
+      responses:
+        "200":
+          description: event stream
+          schema:
+            type: string
+        "400":
+          description: bad request
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+  /api/v1/webhooks/{provider}:
+    post:
+      summary: Receive provider webhook
+      description: Accepts a signed webhook callback.
+      operationId: receiveWebhook
+      tags:
+        - realtime
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          type: string
+      responses:
+        "202":
+          description: accepted
+        "400":
+          description: bad request
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        "404":
+          description: not found
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+definitions:
+  Person:
+    type: object
+    properties:
+      id:
+        type: string
+  OrderPage:
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          type: object
+      nextPageToken:
+        type: string
+  ErrorResponse:
+    type: object
+    properties:
+      error:
+        type: object
+        properties:
+          code:
+            type: string
+          message:
+            type: string

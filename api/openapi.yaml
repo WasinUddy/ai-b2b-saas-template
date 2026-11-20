@@ -1,0 +1,89 @@
+components:
+    schemas:
+        handler.ErrorBody:
+            properties:
+                code:
+                    type: string
+                details:
+                    items:
+                        $ref: '#/components/schemas/handler.ErrorDetail'
+                    type: array
+                message:
+                    type: string
+            required:
+                - code
+                - message
+            type: object
+        handler.ErrorDetail:
+            properties:
+                field:
+                    type: string
+                reason:
+                    type: string
+            required:
+                - reason
+            type: object
+        handler.ErrorResponse:
+            properties:
+                error:
+                    $ref: '#/components/schemas/handler.ErrorBody'
+            required:
+                - error
+            type: object
+        handler.HealthResponse:
+            properties:
+                status:
+                    type: string
+            required:
+                - status
+            type: object
+info:
+    contact: {}
+    description: HTTP API for the AI B2B SaaS template.
+    title: AI B2B SaaS API
+    version: "1.0"
+openapi: 3.0.3
+paths:
+    /healthz:
+        get:
+            description: Reports that the process is running.
+            operationId: getHealth
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/handler.HealthResponse'
+                    description: OK
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/handler.ErrorResponse'
+                    description: Internal Server Error
+            summary: Liveness
+            tags:
+                - health
+    /readyz:
+        get:
+            description: Reports whether the process can serve traffic.
+            operationId: getReady
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/handler.HealthResponse'
+                    description: OK
+                "503":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/handler.ErrorResponse'
+                    description: Service Unavailable
+            summary: Readiness
+            tags:
+                - health
+tags:
+    - description: Process liveness and readiness.
+      name: health

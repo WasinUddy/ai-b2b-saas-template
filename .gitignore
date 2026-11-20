@@ -1,0 +1,13 @@
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+bin/
+.cache/
+*.exe
+*.test
+coverage.out
+
+.DS_Store
+configs/app.env

@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Update File: FILE_PATH\n@@\n"
+  }
+}

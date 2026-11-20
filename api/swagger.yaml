@@ -1,0 +1,85 @@
+basePath: /
+definitions:
+  handler.ErrorBody:
+    properties:
+      code:
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/handler.ErrorDetail'
+        type: array
+      message:
+        type: string
+    required:
+    - code
+    - message
+    type: object
+  handler.ErrorDetail:
+    properties:
+      field:
+        type: string
+      reason:
+        type: string
+    required:
+    - reason
+    type: object
+  handler.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/handler.ErrorBody'
+    required:
+    - error
+    type: object
+  handler.HealthResponse:
+    properties:
+      status:
+        type: string
+    required:
+    - status
+    type: object
+info:
+  contact: {}
+  description: HTTP API for the AI B2B SaaS template.
+  title: AI B2B SaaS API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      description: Reports that the process is running.
+      operationId: getHealth
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.HealthResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Liveness
+      tags:
+      - health
+  /readyz:
+    get:
+      description: Reports whether the process can serve traffic.
+      operationId: getReady
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Readiness
+      tags:
+      - health
+swagger: "2.0"
+tags:
+- description: Process liveness and readiness.
+  name: health

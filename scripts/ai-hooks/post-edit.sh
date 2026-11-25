@@ -22,6 +22,13 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
+# shellcheck source=plan-mode.sh
+source "$(cd "$(dirname "$0")" && pwd)/plan-mode.sh"
+if plan_mode_active "$payload"; then
+  echo '{}'
+  exit 0
+fi
+
 root="${AI_HOOK_ROOT:-}"
 if [[ -z "$root" ]]; then
   root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -53,10 +60,26 @@ backend_go_edited=0
 webui_files=()
 
 if [[ ${#files[@]} -gt 0 ]]; then
+  # Remember files this conversation changed so a later check failure can be left to the agent that owns it.
+  session=$(printf '%s' "$payload" | jq -r '.session_id // .conversation_id // empty')
+  session_list=""
+  if [[ "$session" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    cache="${AI_HOOK_CACHE_DIR:-$root/.cache/ai-hooks}"
+    mkdir -p "$cache/sessions"
+    session_list="$cache/sessions/${agent}-${session}"
+  fi
+
   for file in "${files[@]}"; do
     resolved="$file"
     if [[ "$resolved" != /* ]]; then
       resolved="$root/$resolved"
+    fi
+    if [[ -n "$session_list" ]]; then
+      rel="$resolved"
+      if [[ "$resolved" == "$root/"* ]]; then
+        rel="${resolved#"$root"/}"
+      fi
+      printf '%s\n' "$rel" >>"$session_list"
     fi
     [[ -f "$resolved" ]] || continue
 

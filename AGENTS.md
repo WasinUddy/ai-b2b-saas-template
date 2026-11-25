@@ -88,10 +88,10 @@ and `make check`.
 5. Run `make generate` to update `api/swagger.yaml`, `api/openapi.yaml`, and `webui/src/types/api.gen.ts`.
 6. Add contract test cases in `internal/handler/contract_test.go`.
 7. Build the frontend UI in `webui/src/` calling `apiClient` / `streamApiEvents` from `@/services/apiClient`, respecting layer boundaries, and add Vitest tests.
-8. Run `make check` and fix all violations before stopping.
+8. Run `make check` and fix violations that come from your changes before stopping. If a failure belongs to another agent editing the repo at the same time, leave it for that agent.
 
 ## Agent Hooks
 
 Cursor (`.cursor/hooks.json`), Claude Code (`.claude/settings.json`), and Codex (`.codex/hooks.json`) all run:
 - **Post-edit hook** (`scripts/ai-hooks/post-edit.sh`): formats edited Go (`gofmt`, `swag fmt`) and `webui/` files (Prettier), and regenerates OpenAPI specs + `webui/src/types/api.gen.ts` after backend Go edits.
-- **Stop hook** (`scripts/ai-hooks/stop-check.sh`): fingerprints Go, OpenAPI, migrations, Dockerfile, and `webui/` files, runs `make check`, and sends failures back to the agent (capped at 3 retries).
+- **Stop hook** (`scripts/ai-hooks/stop-check.sh`): fingerprints Go, OpenAPI, migrations, Dockerfile, and `webui/` files, runs `make check`, and sends a failure back to the agent that owns it (capped at 3 retries). A failure in another live agent's files is not handed back. The follow-up tells the agent to fix its own files and leave the rest.
